@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+reports/test-results/
+reports/screenshots/
+reports/html-report/
+reports/allure-results/
+reports/allure-report/
+*.webm
+*.zip
+test-results/
+auth.json

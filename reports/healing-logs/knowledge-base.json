@@ -1,0 +1,67 @@
+[
+  {
+    "id": "44b45696-b538-4e37-a680-6fcc33acdcff",
+    "oldSelector": ".login-submit-btn",
+    "newSelector": "page.getByRole('button', { name: 'Login' })",
+    "pageUrl": "https://www.saucedemo.com/",
+    "intent": "click the login button to sign in",
+    "failureType": "locator_break",
+    "healingConfidence": 0.95,
+    "timestamp": "2026-07-29T23:08:24.560Z",
+    "timesUsed": 1,
+    "lastUsed": "2026-07-29T23:08:24.560Z",
+    "explanation": "Known fix from knowledge base (used 2 times before): Known fix from knowledge base (used 2 times before): The old CSS class selector '.login-submit-btn' does not match any element on the SauceDemo login page, causing a timeout. The login button is an input with type='submit' and value='Login', which has an implicit role of 'button' with accessible name 'Login'. Using getByRole is robust and aligned with user intent."
+  },
+  {
+    "id": "c9d36495-1631-444c-9285-f9d94c850426",
+    "oldSelector": "getByPlaceholder(\"Enter your username here\")",
+    "newSelector": "getByRole('textbox', { name: 'Username' })",
+    "pageUrl": "https://www.saucedemo.com/",
+    "intent": "fill the username field with valid credentials",
+    "failureType": "locator_break",
+    "healingConfidence": 0.95,
+    "timestamp": "2026-07-29T23:08:36.011Z",
+    "timesUsed": 1,
+    "lastUsed": "2026-07-29T23:08:36.011Z",
+    "explanation": "Known fix from knowledge base (used 2 times before): Known fix from knowledge base (used 2 times before): The old selector 'getByPlaceholder(\"Enter your username here\")' failed because the placeholder text does not match the actual page. The username input on saucedemo.com has placeholder 'Username' and no label, making its accessible name 'Username'. The new selector uses getByRole with name 'Username', which is robust and user-facing."
+  },
+  {
+    "id": "f1a109f6-0ff3-4a29-a033-b959bcca9ab6",
+    "oldSelector": ".button-wrapper > input[type=\"submit\"]",
+    "newSelector": "getByRole('button', { name: 'Login' })",
+    "pageUrl": "https://www.saucedemo.com/",
+    "intent": "click the login button to sign in",
+    "failureType": "locator_break",
+    "healingConfidence": 0.95,
+    "timestamp": "2026-07-29T23:08:42.799Z",
+    "timesUsed": 1,
+    "lastUsed": "2026-07-29T23:08:42.799Z",
+    "explanation": "Known fix from knowledge base (used 2 times before): Known fix from knowledge base (used 2 times before): The old selector failed because no element matching '.button-wrapper > input[type=\"submit\"]' exists on saucedemo.com—there is no '.button-wrapper' class. The login button is an <input type='submit'> with value='Login' and data-test='login-button'. The new role-based locator directly finds the button by its accessible role and name, ensuring a resilient match."
+  },
+  {
+    "id": "b1022aaf-1640-4bbf-93ad-244d6c3f2dcc",
+    "oldSelector": "#user-name-old",
+    "newSelector": "getByRole('textbox', { name: 'Username' })",
+    "pageUrl": "https://www.saucedemo.com/",
+    "intent": "enter the username in the login form",
+    "failureType": "locator_break",
+    "healingConfidence": 0.95,
+    "timestamp": "2026-07-29T23:08:48.037Z",
+    "timesUsed": 1,
+    "lastUsed": "2026-07-29T23:08:48.037Z",
+    "explanation": "Known fix from knowledge base (used 2 times before): Known fix from knowledge base (used 2 times before): The old selector '#user-name-old' failed because no element with that ID exists on the page; the correct ID is 'user-name'. The new locator uses the accessible role and name, making it robust to DOM changes."
+  },
+  {
+    "id": "2055aa23-34f0-4712-8dfd-804247289b76",
+    "oldSelector": "button.cart-add-btn",
+    "newSelector": "page.getByRole('button', { name: 'Add to cart' }).first()",
+    "pageUrl": "https://www.saucedemo.com/inventory.html",
+    "intent": "add the first product to the shopping cart",
+    "failureType": "locator_break",
+    "healingConfidence": 0.95,
+    "timestamp": "2026-07-29T23:08:30.850Z",
+    "timesUsed": 1,
+    "lastUsed": "2026-07-29T23:08:30.850Z",
+    "explanation": "Known fix from knowledge base (used 2 times before): The old CSS selector 'button.cart-add-btn' targeted a non-existent class. The actual button has text 'Add to cart' and role 'button'. Using a role-based locator with accessible name is robust and matches the first product's add-to-cart button."
+  }
+]

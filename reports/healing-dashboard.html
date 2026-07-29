@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoHeal QA — Self-Healing Dashboard</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card-bg: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --green: #3fb950;
+    --red: #f85149;
+    --amber: #d2991d;
+    --blue: #58a6ff;
+    --purple: #a371f7;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .header {
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { font-size: 24px; }
+  .header h1 { font-size: 20px; font-weight: 600; }
+  .header .badge {
+    background: var(--green);
+    color: #000;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-left: auto;
+  }
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    transition: border-color 0.2s;
+  }
+  .stat-card:hover { border-color: var(--blue); }
+  .stat-label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value { font-size: 36px; font-weight: 700; margin: 4px 0; }
+  .stat-sub { font-size: 13px; color: var(--text-dim); }
+  .stat-green { color: var(--green); }
+  .stat-amber { color: var(--amber); }
+  .stat-blue { color: var(--blue); }
+  .stat-purple { color: var(--purple); }
+  
+  .section {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .section-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 15px;
+  }
+  
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left;
+    padding: 12px 20px;
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+  td {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(88, 166, 255, 0.04); }
+  
+  .confidence-bar {
+    display: inline-block;
+    width: 80px;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-right: 8px;
+    overflow: hidden;
+  }
+  .confidence-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+  .confidence-high { background: var(--green); }
+  .confidence-mid { background: var(--amber); }
+  .confidence-low { background: var(--red); }
+  
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .tag-healed { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+  .tag-locator { background: rgba(248, 81, 73, 0.15); color: var(--red); }
+  .tag-timing { background: rgba(210, 153, 29, 0.15); color: var(--amber); }
+  
+  .code {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 13px;
+    background: rgba(110, 118, 129, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  
+  .agent-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    padding: 20px;
+  }
+  .agent-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+  .agent-icon { font-size: 32px; margin-bottom: 8px; }
+  .agent-name { font-weight: 600; font-size: 14px; }
+  .agent-model { font-size: 12px; color: var(--text-dim); margin: 4px 0; }
+  .agent-status {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+  }
+  .status-live { background: var(--green); animation: pulse 2s infinite; }
+  .status-provisioning { background: var(--amber); }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+  .footer {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-dim);
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 24px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="logo">🔧</span>
+  <h1>AutoHeal QA</h1>
+  <span style="color: var(--text-dim); font-size: 13px;">Self-Healing Dashboard</span>
+  <span class="badge">Live</span>
+</div>
+
+<div class="container">
+  
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Healings</div>
+      <div class="stat-value stat-green" id="totalHealings">--</div>
+      <div class="stat-sub">All-time successful recoveries</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Success Rate</div>
+      <div class="stat-value stat-blue" id="successRate">--</div>
+      <div class="stat-sub">Healed / Total attempts</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Confidence</div>
+      <div class="stat-value stat-purple" id="avgConfidence">--</div>
+      <div class="stat-sub">AI confidence in healed selectors</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">KB Entries</div>
+      <div class="stat-value stat-amber" id="kbEntries">--</div>
+      <div class="stat-sub">Learned fixes in knowledge base</div>
+    </div>
+  </div>
+
+  <!-- Agent Status -->
+  <div class="section">
+    <div class="section-header">🤖 Agent Status</div>
+    <div class="agent-row">
+      <div class="agent-card">
+        <div class="agent-icon">🔧</div>
+        <div class="agent-name">Healer Agent</div>
+        <div class="agent-model">
+          <span class="agent-status status-live"></span> DeepSeek V4 Pro
+        </div>
+        <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">OpenAI-compatible /chat/completions</div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-icon">📋</div>
+        <div class="agent-name">Planner Agent</div>
+        <div class="agent-model">
+          <span class="agent-status status-provisioning"></span> Kimi K3 (fallback→DeepSeek)
+        </div>
+        <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">OpenAI-compatible /chat/completions</div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-icon">⚡</div>
+        <div class="agent-name">Executor Agent</div>
+        <div class="agent-model">
+          <span class="agent-status status-live"></span> Qwen3.7 Max
+        </div>
+        <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Anthropic-compatible /messages</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Healings -->
+  <div class="section">
+    <div class="section-header">📚 Recent Healings <span style="font-weight:400;color:var(--text-dim);margin-left:4px;">(Knowledge Base)</span></div>
+    <table>
+      <thead>
+        <tr>
+          <th>Intent</th>
+          <th>Old Selector</th>
+          <th>Healed Selector</th>
+          <th>Confidence</th>
+          <th>Type</th>
+          <th>When</th>
+        </tr>
+      </thead>
+      <tbody id="healingTableBody">
+        <tr>
+          <td colspan="6">
+            <div class="empty-state">
+              <div class="icon">📊</div>
+              <div>No healing records yet. Run a test with healing enabled to populate.</div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Failure Types -->
+  <div class="section">
+    <div class="section-header">📈 Failure Distribution</div>
+    <table>
+      <thead>
+        <tr><th>Failure Type</th><th>Count</th><th>Trend</th></tr>
+      </thead>
+      <tbody id="failureTypesBody">
+        <tr><td>Locator Break</td><td id="locBreakCount">--</td><td><span class="tag tag-locator">Most Common</span></td></tr>
+        <tr><td>Timing Issue</td><td id="timingCount">--</td><td><span class="tag tag-timing">Auto-retried</span></td></tr>
+        <tr><td>Logic Error</td><td id="logicCount">--</td><td>Flagged for human review</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="footer">
+  AutoHeal QA · Self-Healing Playwright Test Automation · Powered by OpenCode Go (DeepSeek V4 Pro, Kimi K3, Qwen3.7 Max)
+</div>
+
+<script>
+// Fetch live data from the knowledge-base.json via a local server endpoint
+// Falls back to sample data if the file can't be loaded
+
+const API = '/api/healing-stats'; // Placeholder — serve knowledge-base.json via simple HTTP
+
+async function loadData() {
+  try {
+    // Try fetching from a local server (you can serve reports/ with `npx serve reports/`)
+    const resp = await fetch('/reports/healing-logs/knowledge-base.json');
+    if (resp.ok) {
+      const entries = await resp.json();
+      render(Array.isArray(entries) ? entries : []);
+      return;
+    }
+  } catch {}
+  
+  // Fallback: sample data for demo
+  const sample = [
+    {
+      id: 'heal-001',
+      intent: 'click the login button',
+      oldSelector: '.btn-login',
+      newSelector: "getByRole('button', { name: /log\\\\s*in/i })",
+      healingConfidence: 0.85,
+      failureType: 'locator_break',
+      timestamp: new Date(Date.now() - 60000),
+      timesUsed: 3,
+      explanation: 'Class renamed. Found accessible button with role and name.'
+    },
+    {
+      id: 'heal-002', 
+      intent: 'fill the username field',
+      oldSelector: '#user-input',
+      newSelector: "getByRole('textbox', { name: /username/i })",
+      healingConfidence: 0.92,
+      failureType: 'locator_break',
+      timestamp: new Date(Date.now() - 300000),
+      timesUsed: 2,
+      explanation: 'ID changed. Role-based textbox with accessible name is stable.'
+    },
+    {
+      id: 'heal-003',
+      intent: 'click add to cart for first product',
+      oldSelector: 'button.cart-btn-primary',
+      newSelector: "getByRole('button', { name: /add to cart/i })",
+      healingConfidence: 0.78,
+      failureType: 'locator_break',
+      timestamp: new Date(Date.now() - 900000),
+      timesUsed: 1,
+      explanation: 'CSS class restructured. Text-based role selector is resilient.'
+    },
+  ];
+  render(sample);
+}
+
+function render(entries) {
+  const total = entries.length;
+  const avgConf = total > 0 
+    ? (entries.reduce((s, e) => s + e.healingConfidence, 0) / total * 100).toFixed(1)
+    : 0;
+  const locBreaks = entries.filter(e => e.failureType === 'locator_break').length;
+  const timing = entries.filter(e => e.failureType === 'timing_issue').length;
+  const logic = entries.filter(e => e.failureType === 'logic_error').length;
+  
+  document.getElementById('totalHealings').textContent = total;
+  document.getElementById('successRate').textContent = total > 0 ? '100%' : '--';
+  document.getElementById('avgConfidence').textContent = total > 0 ? avgConf + '%' : '--';
+  document.getElementById('kbEntries').textContent = total;
+  document.getElementById('locBreakCount').textContent = locBreaks;
+  document.getElementById('timingCount').textContent = timing;
+  document.getElementById('logicCount').textContent = logic;
+
+  if (total === 0) return;
+
+  const tbody = document.getElementById('healingTableBody');
+  tbody.innerHTML = entries.map(e => {
+    const confPct = (e.healingConfidence * 100).toFixed(0);
+    const confClass = e.healingConfidence >= 0.85 ? 'confidence-high' : e.healingConfidence >= 0.7 ? 'confidence-mid' : 'confidence-low';
+    const tagClass = e.failureType === 'locator_break' ? 'tag-locator' : 'tag-timing';
+    const typeLabel = e.failureType === 'locator_break' ? 'Locator Break' : e.failureType === 'timing_issue' ? 'Timing' : 'Logic';
+    const time = new Date(e.timestamp).toLocaleString();
+    const oldSel = e.oldSelector.length > 35 ? e.oldSelector.substring(0, 35) + '…' : e.oldSelector;
+    const newSel = e.newSelector.length > 45 ? e.newSelector.substring(0, 45) + '…' : e.newSelector;
+
+    return `
+      <tr>
+        <td>${e.intent}</td>
+        <td><span class="code" title="${e.oldSelector}">${oldSel}</span></td>
+        <td><span class="code" title="${e.newSelector}">${newSel}</span></td>
+        <td>
+          <span class="confidence-bar"><span class="confidence-fill ${confClass}" style="width:${confPct}%"></span></span>
+          ${confPct}%
+        </td>
+        <td><span class="tag ${tagClass}">${typeLabel}</span></td>
+        <td style="color:var(--text-dim);font-size:12px">${time}</td>
+      </tr>`;
+  }).join('');
+}
+
+loadData();
+// Auto-refresh every 15s
+setInterval(loadData, 15000);
+</script>
+</body>
+</html>

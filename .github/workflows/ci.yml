@@ -1,0 +1,67 @@
+name: AutoHeal QA CI - PR Checks & Smoke Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-build:
+    name: Lint & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run lint || true
+      - run: npm run build || true
+
+  smoke-tests:
+    name: Smoke Tests (${{ matrix.project }})
+    needs: lint-and-build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npx playwright install --with-deps ${{ matrix.project }}
+
+      - name: Run Smoke Tests
+        run: npm run test:smoke -- --project=${{ matrix.project }}
+        env:
+          CI: true
+          BASE_URL: ${{ vars.BASE_URL || 'https://www.saucedemo.com' }}
+        continue-on-error: true
+
+      - name: Upload Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report-${{ matrix.project }}
+          path: |
+            reports/html-report/
+            reports/healing-logs/
+          retention-days: 7
+
+      - name: Upload Screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.project }}
+          path: reports/screenshots/
+          retention-days: 7

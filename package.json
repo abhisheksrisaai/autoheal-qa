@@ -1,0 +1,60 @@
+{
+  "name": "autoheal-qa",
+  "version": "1.0.0",
+  "description": "AutoHeal QA: AI-Powered Self-Healing Test Automation Framework Using Playwright and Multi-Agent Architecture",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:e2e": "playwright test tests/e2e/",
+    "test:api": "playwright test tests/api/",
+    "test:visual": "playwright test tests/visual/",
+    "test:performance": "playwright test tests/performance/",
+    "test:smoke": "playwright test --grep '@smoke'",
+    "test:regression": "playwright test --grep '@regression'",
+    "report": "allure generate reports/allure-results -o reports/allure-report --clean && allure open reports/allure-report",
+    "report:html": "playwright show-report reports/html-report",
+    "lint": "eslint src/ tests/ --ext .ts",
+    "lint:fix": "eslint src/ tests/ --ext .ts --fix",
+    "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'",
+    "build": "tsc",
+    "clean": "rm -rf dist/ reports/allure-results/* reports/html-report/*",
+    "docker:build": "docker build -t autoheal-qa .",
+    "docker:up": "docker-compose up",
+    "docker:test": "docker-compose run autoheal-qa npm test",
+    "postinstall": "playwright install"
+  },
+  "keywords": [
+    "playwright",
+    "self-healing",
+    "ai",
+    "test-automation",
+    "multi-agent"
+  ],
+  "author": "AutoHeal QA Team",
+  "license": "MIT",
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.24",
+    "@ai-sdk/openai-compatible": "^3.0.17",
+    "@faker-js/faker": "^9.0.0",
+    "@playwright/test": "^1.45.0",
+    "ai": "^7.0.42",
+    "ajv": "^8.16.0",
+    "allure-commandline": "^2.29.0",
+    "allure-playwright": "^3.0.0",
+    "dotenv": "^16.4.5",
+    "faker": "^5.5.3",
+    "openai": "^4.52.0",
+    "uuid": "^9.0.1",
+    "winston": "^3.13.0",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/uuid": "^9.0.8",
+    "@typescript-eslint/eslint-plugin": "^7.13.0",
+    "@typescript-eslint/parser": "^7.13.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.5.0"
+  }
+}

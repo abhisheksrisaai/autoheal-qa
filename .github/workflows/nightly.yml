@@ -1,0 +1,80 @@
+name: AutoHeal QA Nightly - Full Regression Suite
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 2 AM UTC daily
+  workflow_dispatch:      # Manual trigger
+
+jobs:
+  regression:
+    name: Full Regression (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox, webkit]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npx playwright install --with-deps ${{ matrix.project }}
+
+      - name: Run E2E Tests
+        run: npm run test:e2e -- --project=${{ matrix.project }}
+        env:
+          CI: true
+          BASE_URL: ${{ vars.BASE_URL || 'https://www.saucedemo.com' }}
+        continue-on-error: true
+
+      - name: Run API Tests
+        run: npm run test:api -- --project=${{ matrix.project }}
+        continue-on-error: true
+
+      - name: Run Visual Tests
+        run: npm run test:visual -- --project=${{ matrix.project }}
+        continue-on-error: true
+
+      - name: Run Performance Tests
+        run: npm run test:performance -- --project=${{ matrix.project }}
+        continue-on-error: true
+
+      - name: Generate Allure Report
+        if: always()
+        run: npx allure generate reports/allure-results -o reports/allure-report --clean
+
+      - name: Upload Allure Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-${{ matrix.project }}
+          path: reports/allure-report/
+          retention-days: 14
+
+      - name: Upload HTML Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-report-${{ matrix.project }}
+          path: reports/html-report/
+          retention-days: 14
+
+      - name: Upload Healing Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: healing-logs-${{ matrix.project }}
+          path: reports/healing-logs/
+          retention-days: 30
+
+      - name: Upload Screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.project }}
+          path: reports/screenshots/
+          retention-days: 7

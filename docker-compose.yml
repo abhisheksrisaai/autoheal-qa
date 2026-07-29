@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  autoheal-qa:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: autoheal-qa:latest
+    container_name: autoheal-qa
+    environment:
+      - CI=true
+      - BASE_URL=${BASE_URL:-https://www.saucedemo.com}
+      - HEADLESS=true
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - KIMI_API_KEY=${KIMI_API_KEY:-}
+      - QWEN_API_KEY=${QWEN_API_KEY:-}
+    volumes:
+      - ./reports:/app/reports
+      - ./reports/healing-logs:/app/reports/healing-logs
+    command: npx playwright test
+    shm_size: 2gb
+
+  autoheal-qa-e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: autoheal-qa:latest
+    container_name: autoheal-qa-e2e
+    environment:
+      - CI=true
+      - BASE_URL=${BASE_URL:-https://www.saucedemo.com}
+      - HEADLESS=true
+    volumes:
+      - ./reports:/app/reports
+    command: npx playwright test tests/e2e/
+    shm_size: 2gb
+    profiles:
+      - e2e
+
+  autoheal-qa-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: autoheal-qa:latest
+    container_name: autoheal-qa-api
+    environment:
+      - CI=true
+    volumes:
+      - ./reports:/app/reports
+    command: npx playwright test tests/api/
+    shm_size: 1gb
+    profiles:
+      - api
