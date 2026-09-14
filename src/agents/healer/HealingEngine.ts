@@ -1,7 +1,7 @@
 import { FailureEvent, HealingResult } from '../../types';
 import { DiagnosisResult } from '../../types/agent.types';
 import { ErrorAnalyzer } from './ErrorAnalyzer';
-import { LocatorHealer } from './LocatorHealer';
+import { LocatorHealer, HealProvider } from './LocatorHealer';
 import { KnowledgeBase } from '../shared/KnowledgeBase';
 import { AIModelRouter } from '../shared/AIModelRouter';
 import { healingConfig, HealingRules } from '../../config/healing.config';
@@ -21,8 +21,12 @@ export class HealingEngine {
 
   /**
    * Executes the full healing workflow for a test failure.
+   *
+   * The whole attempt loop runs inside a hard time budget
+   * (healingConfig.timeoutMs). The budget was configured but never enforced,
+   * so a stalled AI call could previously hang a test run indefinitely.
    */
-  async heal(failure: FailureEvent): Promise<HealingResult> {
+  async heal(failure: FailureEvent, options?: { provider?: HealProvider }): Promise<HealingResult> {
     console.log(`[HealingEngine] Starting healing for: ${failure.testContext.intent}`);
 
     // Step 1: Diagnose the failure
@@ -47,24 +51,25 @@ export class HealingEngine {
       console.log('[HealingEngine] Timing issue detected — would retry before healing');
     }
 
-    // Step 4: Perform the healing
+    // Step 4: Perform the healing inside the time budget
     let healingResult: HealingResult | null = null;
-    let attempts = 0;
-
-    while (attempts < healingConfig.maxAttempts) {
-      attempts++;
-      console.log(`[HealingEngine] Healing attempt ${attempts}/${healingConfig.maxAttempts}`);
-
-      healingResult = await this.locatorHealer.heal(failure);
-
-      if (healingResult.confidence >= healingConfig.confidenceThreshold) {
-        break;
-      }
-
-      // If confidence is low, try once more with different strategy
-      if (attempts < healingConfig.maxAttempts) {
-        console.log(`[HealingEngine] Low confidence (${healingResult.confidence}), retrying...`);
-      }
+    try {
+      healingResult = await this.withTimeout(
+        this.runHealLoop(failure, options?.provider),
+        healingConfig.timeoutMs,
+        `Healing timed out after ${healingConfig.timeoutMs}ms`
+      );
+    } catch (error: any) {
+      console.error(`[HealingEngine] ${error.message}`);
+      return {
+        success: false,
+        newSelector: '',
+        confidence: 0,
+        explanation: error.message,
+        oldSelectorType: this.errorAnalyzer.getSelectorType(failure.oldSelector),
+        newSelectorType: 'css',
+        elementAttributes: { tag: '', role: '', ariaLabel: '', textContent: '' },
+      };
     }
 
     // Step 5: Validate the result
@@ -82,6 +87,46 @@ export class HealingEngine {
       newSelectorType: 'css',
       elementAttributes: { tag: '', role: '', ariaLabel: '', textContent: '' },
     };
+  }
+
+  /**
+   * Bounded retry loop: at most maxAttempts AI/KB passes, stopping early
+   * once a result clears the confidence floor.
+   */
+  private async runHealLoop(failure: FailureEvent, provider?: HealProvider): Promise<HealingResult | null> {
+    let healingResult: HealingResult | null = null;
+    let attempts = 0;
+
+    while (attempts < healingConfig.maxAttempts) {
+      attempts++;
+      console.log(`[HealingEngine] Healing attempt ${attempts}/${healingConfig.maxAttempts}`);
+
+      healingResult = await this.locatorHealer.heal(failure, provider);
+
+      if (healingResult.confidence >= healingConfig.confidenceThreshold) {
+        break;
+      }
+
+      // If confidence is low, try once more with different strategy
+      if (attempts < healingConfig.maxAttempts) {
+        console.log(`[HealingEngine] Low confidence (${healingResult.confidence}), retrying...`);
+      }
+    }
+
+    return healingResult;
+  }
+
+  /**
+   * Rejects if the wrapped promise exceeds ms. The timer is unref'd so a
+   * timed-out heal never keeps the process alive on its own.
+   */
+  private withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+    let timer: NodeJS.Timeout;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), ms);
+      timer.unref?.();
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer!));
   }
 
   /**

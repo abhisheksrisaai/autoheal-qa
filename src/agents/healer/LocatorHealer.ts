@@ -4,12 +4,22 @@ import {
   SelectorType,
   ElementAttributes,
   AccessibilityNode,
+  HealProvider,
 } from '../../types';
 import { ErrorAnalyzer } from './ErrorAnalyzer';
 import { KnowledgeBase } from '../shared/KnowledgeBase';
 import { AIModelRouter } from '../shared/AIModelRouter';
 import { getOpenCodeClient } from '../shared/OpenCodeClient';
 import { getOpenCodeConfig } from '../../config/ai.config';
+
+// Re-exported so existing importers (HealerAgent, evals) keep working.
+export type { HealProvider } from '../../types';
+
+const HEAL_PROVIDER_CONFIG = {
+  deepseek: { configKey: 'deepseek', label: 'DeepSeek V4 Pro' },
+  kimi: { configKey: 'kimi', label: 'Kimi K3' },
+  qwen: { configKey: 'qwen', label: 'Qwen3.7 Max' },
+} as const;
 
 export class LocatorHealer {
   private errorAnalyzer: ErrorAnalyzer;
@@ -25,7 +35,7 @@ export class LocatorHealer {
   /**
    * Main healing method: tries KB first, then falls back to AI.
    */
-  async heal(failure: FailureEvent): Promise<HealingResult> {
+  async heal(failure: FailureEvent, provider: HealProvider = 'deepseek'): Promise<HealingResult> {
     const selectorType = this.errorAnalyzer.getSelectorType(failure.oldSelector);
 
     // Step 1: Query knowledge base for known fix
@@ -47,15 +57,16 @@ export class LocatorHealer {
     }
 
     // Step 2: AI-based healing using accessibility tree
-    return this.aiHeal(failure, selectorType);
+    return this.aiHeal(failure, selectorType, provider);
   }
 
   /**
-   * Uses AI (DeepSeek V4 Pro) to analyze the DOM and generate a new selector.
+   * Uses AI to analyze the DOM and generate a new selector.
    */
   private async aiHeal(
     failure: FailureEvent,
-    oldSelectorType: SelectorType
+    oldSelectorType: SelectorType,
+    provider: HealProvider = 'deepseek'
   ): Promise<HealingResult> {
     const model = this.aiRouter.getModelForHealing();
     const accessibilityTree = failure.accessibilityTree;
@@ -65,7 +76,7 @@ export class LocatorHealer {
 
     try {
       // Call AI model for healing (we'll implement the actual API call)
-      const aiResponse = await this.callAIForHealing(prompt);
+      const aiResponse = await this.callAIForHealing(prompt, provider);
 
       if (aiResponse && aiResponse.confidence >= 0.7) {
         const newSelectorType = this.errorAnalyzer.getSelectorType(aiResponse.newSelector);
@@ -167,10 +178,11 @@ RULES:
   }
 
   /**
-   * Calls DeepSeek V4 Pro via OpenCode Go API for AI-powered healing.
+   * Calls the configured healing model via OpenCode Go API for AI-powered healing.
    */
-  private async callAIForHealing(prompt: string): Promise<HealingResult | null> {
+  private async callAIForHealing(prompt: string, provider: HealProvider = 'deepseek'): Promise<HealingResult | null> {
     const client = getOpenCodeClient();
+    const { configKey, label } = HEAL_PROVIDER_CONFIG[provider];
 
     // If no API key configured, fall back to heuristics
     if (!client.isConfigured()) {
@@ -181,8 +193,8 @@ RULES:
     }
 
     try {
-      console.log('[LocatorHealer] Calling DeepSeek V4 Pro via OpenCode Go...');
-      const config = getOpenCodeConfig('deepseek');
+      console.log(`[LocatorHealer] Calling ${label} via OpenCode Go...`);
+      const config = getOpenCodeConfig(configKey);
       const rawResponse = await client.generate(config, prompt, {
         jsonMode: true,
         temperature: 0.1,
@@ -212,7 +224,7 @@ RULES:
         },
       };
     } catch (error: any) {
-      console.error('[LocatorHealer] DeepSeek API call failed:', error.message);
+      console.error(`[LocatorHealer] ${label} API call failed:`, error.message);
       console.warn('[LocatorHealer] Falling back to heuristic healing.');
       return this.heuristicHeal(prompt);
     }

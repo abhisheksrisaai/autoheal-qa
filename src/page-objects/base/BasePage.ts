@@ -2,6 +2,7 @@ import { Page, Locator, expect } from '@playwright/test';
 import { HealerAgent } from '../../agents/healer/HealerAgent';
 import { ContextManager } from '../../agents/shared/ContextManager';
 import { HealingResult, FailureEvent } from '../../types';
+import { captureA11ySnapshot } from '../../helpers/captureA11y';
 
 /**
  * BasePage - Abstract base class for all page objects with built-in self-healing.
@@ -171,11 +172,7 @@ export abstract class BasePage {
    * Captures the accessibility tree from the current page.
    */
   async captureAccessibilityTree(): Promise<any> {
-    try {
-      return await (this.page as any).accessibility.snapshot();
-    } catch {
-      return { role: 'WebArea', name: 'Unknown' };
-    }
+    return (await captureA11ySnapshot(this.page)) ?? { role: 'WebArea', name: 'Unknown' };
   }
 
   /**
@@ -237,7 +234,7 @@ export class SelfHealingLocator {
       return locator;
     } catch {
       // Trigger healing
-      const accessibilityTree = await (this.page as any).accessibility.snapshot().catch(() => null);
+      const accessibilityTree = await captureA11ySnapshot(this.page);
       const currentUrl = this.page.url();
 
       const failure: FailureEvent = {

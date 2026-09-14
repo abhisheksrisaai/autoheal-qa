@@ -1,6 +1,7 @@
 import { FailureEvent, HealingResult } from '../../types';
 import { DiagnosisResult } from '../../types/agent.types';
 import { HealingEngine } from './HealingEngine';
+import { HealProvider } from './LocatorHealer';
 import { ContextManager } from '../shared/ContextManager';
 import { KnowledgeBase } from '../shared/KnowledgeBase';
 
@@ -28,7 +29,7 @@ export class HealerAgent {
   /**
    * Handles a test failure. This is the main entry point for the healing process.
    */
-  async handleFailure(failure: FailureEvent): Promise<HealingResult> {
+  async handleFailure(failure: FailureEvent, options?: { provider?: HealProvider }): Promise<HealingResult> {
     console.log(`[HealerAgent] Handling failure at step ${failure.stepIndex}: ${failure.testContext.intent}`);
 
     // Record failure in context
@@ -51,7 +52,7 @@ export class HealerAgent {
     }
 
     // Step 3: Heal
-    const result = await this.healingEngine.heal(failure);
+    const result = await this.healingEngine.heal(failure, options);
 
     // Step 4: Learn from the experience
     if (result.success) {
@@ -83,53 +84,112 @@ export class HealerAgent {
 
   /**
    * Resolves a Playwright selector string to an actual locator.
+   * Public so ExecutorAgent can run healed (getBy*-style) selectors: feeding
+   * them to page.locator() raw misparses them as CSS and fails.
    */
-  private resolveLocator(page: any, selector: string): any {
+  public resolveLocator(page: any, selector: string): any {
+    // Models naturally emit page.-prefixed selectors; strip the prefix so
+    // single-segment getBy* selectors resolve.
+    const original = String(selector || '');
+    let s = original.trim();
+    if (s.startsWith('page.')) s = s.slice(5);
+
+    // Split off a trailing .first()/.last()/.nth(n) qualifier, then require
+    // exactly ONE getBy*/locator segment to remain. A second top-level link
+    // (e.g. getByRole('main').getByRole('button', ...)) throws instead of
+    // silently resolving to the wrong element — fail closed, never guess.
+    let qualifier: 'first' | 'last' | null = null;
+    let nthIndex: number | null = null;
+    const nthMatch = s.match(/\.nth\((\d+)\)\s*$/);
+    if (nthMatch) {
+      nthIndex = parseInt(nthMatch[1], 10);
+      s = s.slice(0, nthMatch.index).trim();
+    } else if (/\.first\(\)\s*$/.test(s)) {
+      qualifier = 'first';
+      s = s.replace(/\.first\(\)\s*$/, '').trim();
+    } else if (/\.last\(\)\s*$/.test(s)) {
+      qualifier = 'last';
+      s = s.replace(/\.last\(\)\s*$/, '').trim();
+    }
+    if (/^(getByRole|getByText|getByLabel|getByPlaceholder|getByTestId|locator)\(/.test(s)) {
+      this.assertSingleSegment(s, original);
+    }
+
+    let loc: any;
     // Handle getByRole, getByText, etc.
-    if (selector.startsWith('getByRole(')) {
-      const match = selector.match(/getByRole\('([^']+)'(?:,\s*\{([^}]+)\})?\)/);
+    if (s.startsWith('getByRole(')) {
+      const match = s.match(/getByRole\('([^']+)'(?:,\s*\{([^}]+)\})?\)/);
       if (match) {
         const role = match[1];
         const options = match[2] ? this.parseOptions(match[2]) : {};
-        return page.getByRole(role, options);
+        loc = page.getByRole(role, options);
       }
     }
-    if (selector.startsWith('getByText(')) {
-      const match = selector.match(/getByText\(([^)]+)\)/);
+    if (!loc && s.startsWith('getByText(')) {
+      const match = s.match(/getByText\(([^)]+)\)/);
       if (match) {
         const text = this.parseTextArg(match[1]);
-        return page.getByText(text);
+        loc = page.getByText(text);
       }
     }
-    if (selector.startsWith('getByLabel(')) {
-      const match = selector.match(/getByLabel\(([^)]+)\)/);
+    if (!loc && s.startsWith('getByLabel(')) {
+      const match = s.match(/getByLabel\(([^)]+)\)/);
       if (match) {
         const label = this.parseTextArg(match[1]);
-        return page.getByLabel(label);
+        loc = page.getByLabel(label);
       }
     }
-    if (selector.startsWith('getByPlaceholder(')) {
-      const match = selector.match(/getByPlaceholder\(([^)]+)\)/);
+    if (!loc && s.startsWith('getByPlaceholder(')) {
+      const match = s.match(/getByPlaceholder\(([^)]+)\)/);
       if (match) {
         const placeholder = this.parseTextArg(match[1]);
-        return page.getByPlaceholder(placeholder);
+        loc = page.getByPlaceholder(placeholder);
       }
     }
-    if (selector.startsWith('getByTestId(')) {
-      const match = selector.match(/getByTestId\(([^)]+)\)/);
+    if (!loc && s.startsWith('getByTestId(')) {
+      const match = s.match(/getByTestId\(([^)]+)\)/);
       if (match) {
-        return page.getByTestId(match[1].replace(/['"]/g, ''));
+        loc = page.getByTestId(match[1].replace(/['"]/g, ''));
       }
     }
     // Fallback to locator()
-    if (selector.startsWith('locator(')) {
-      const match = selector.match(/locator\(([^)]+)\)/);
+    if (!loc && s.startsWith('locator(')) {
+      const match = s.match(/locator\(([^)]+)\)/);
       if (match) {
-        return page.locator(match[1].replace(/['"]/g, ''));
+        loc = page.locator(match[1].replace(/['"]/g, ''));
       }
     }
     // Default: treat as CSS
-    return page.locator(selector);
+    if (!loc) {
+      loc = page.locator(s);
+    }
+
+    if (nthIndex !== null) return loc.nth(nthIndex);
+    if (qualifier === 'first') return loc.first();
+    if (qualifier === 'last') return loc.last();
+    return loc;
+  }
+
+  /**
+   * Throws unless s is a single getBy/locator call. Catches chains
+   * like getByRole('main').getByRole('button', ...) that prefix-matching
+   * would otherwise truncate into a wrong-element resolution.
+   */
+  private assertSingleSegment(s: string, original: string): void {
+    const open = s.indexOf('(');
+    let depth = 0;
+    let end = -1;
+    for (let i = open; i < s.length; i++) {
+      if (s[i] === '(') depth++;
+      if (s[i] === ')') {
+        depth--;
+        if (depth === 0) { end = i; break; }
+      }
+    }
+    const rest = end === -1 ? s : s.slice(end + 1).trim();
+    if (end === -1 || rest !== '') {
+      throw new Error(`[resolveLocator] chained selectors not supported: ${original}`);
+    }
   }
 
   private parseTextArg(arg: string): string | RegExp {
@@ -156,6 +216,14 @@ export class HealerAgent {
       const pattern = regexStr.slice(1, lastSlash);
       const flags = regexStr.slice(lastSlash + 1);
       options.name = new RegExp(pattern, flags);
+    } else {
+      // Models most often emit plain string names ({ name: 'Login' }); the
+      // regex-only parser above dropped them, resolving to an unnamed role
+      // that strict-violates on any page with two matching elements.
+      const strNameMatch = optionsStr.match(/name:\s*['"]([^'"]+)['"]/);
+      if (strNameMatch) {
+        options.name = strNameMatch[1];
+      }
     }
     const exactMatch = optionsStr.match(/exact:\s*(true|false)/);
     if (exactMatch) {

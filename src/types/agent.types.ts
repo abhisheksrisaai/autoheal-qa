@@ -1,4 +1,4 @@
-import { FailureEvent, HealingResult, KnowledgeBaseEntry, FailureType, AccessibilityNode, TestContext, Environment } from './index';
+import { FailureEvent, HealingResult, KnowledgeBaseEntry, FailureType, AccessibilityNode, TestContext, Environment, HealProvider } from './index';
 
 export interface HealerAgentInterface {
   diagnose(failure: FailureEvent): Promise<DiagnosisResult>;
@@ -15,7 +15,7 @@ export interface PlannerAgentInterface {
 
 export interface ExecutorAgentInterface {
   execute(step: AgentTestStep, context: ExecutionContext): Promise<ExecutionResult>;
-  captureAccessibilityTree(): Promise<AccessibilityNode>;
+  captureAccessibilityTree(page?: any): Promise<AccessibilityNode>;
   monitorExecution(context: ExecutionContext): Promise<void>;
   handleFailure(failure: FailureEvent): Promise<void>;
 }
@@ -83,6 +83,17 @@ export interface ExecutionContext {
   browser: any;
   testContext: TestContext;
   session: SessionState;
+  /**
+   * How many heal-and-retry cycles this step has already gone through.
+   * Caps recursive heal retries so a confidently-wrong AI suggestion fails
+   * the step instead of looping heal → retry → heal forever.
+   */
+  healDepth?: number;
+  /**
+   * Which LLM the executor's fallback heal should use. Defaults to the
+   * healer default (deepseek) when unset.
+   */
+  healProvider?: HealProvider;
 }
 
 export interface ExecutionResult {

@@ -58,6 +58,12 @@ export interface HealingResult {
   elementAttributes: ElementAttributes;
 }
 
+/**
+ * Which LLM backs AI healing. Defined here so agents, executor context,
+ * and evals share one union without import cycles.
+ */
+export type HealProvider = 'deepseek' | 'kimi' | 'qwen';
+
 export interface KnowledgeBaseEntry {
   id: string;
   oldSelector: string;

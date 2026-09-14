@@ -14,9 +14,18 @@ export class OpenCodeClient {
   private openaiProvider: any;
   private anthropicProvider: any;
   private apiKey: string;
+  private sessionId: string;
 
   constructor() {
     this.apiKey = process.env.OPENCODE_API_KEY || process.env.OPENCODE_GO_API_KEY || '';
+    // OpenCode Go requires a stable per-conversation session id for routing
+    // and prompt caching (see https://opencode.ai/docs/go/#where-can-i-use-it).
+    // Without it every request is rejected, so default to one stable id per
+    // process instead of failing at call time.
+    if (!process.env.OPENCODE_SESSION_ID) {
+      process.env.OPENCODE_SESSION_ID = `autoheal-qa-${Date.now().toString(36)}`;
+    }
+    this.sessionId = process.env.OPENCODE_SESSION_ID;
 
     // OpenAI-compatible provider (DeepSeek, Kimi)
     this.openaiProvider = createOpenAICompatible({
@@ -25,6 +34,8 @@ export class OpenCodeClient {
       apiKey: this.apiKey,
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,
+        'x-opencode-session': this.sessionId,
+        'User-Agent': 'autoheal-qa/1.0',
       },
     });
 
@@ -35,6 +46,8 @@ export class OpenCodeClient {
       apiKey: this.apiKey,
       headers: {
         'x-api-key': this.apiKey,
+        'x-opencode-session': this.sessionId,
+        'User-Agent': 'autoheal-qa/1.0',
       },
     });
   }
