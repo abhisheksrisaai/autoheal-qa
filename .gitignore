@@ -10,3 +10,5 @@ reports/allure-report/
 *.zip
 test-results/
 auth.json
+# heal-bench KB caches are regenerable per run; results JSON + RESULTS.md are evidence, keep them.
+evals/heal-bench/results/kb-*.json

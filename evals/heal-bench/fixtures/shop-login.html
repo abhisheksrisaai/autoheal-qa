@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Shop — Login</title></head>
+<body>
+  <div class="login_logo">Swag Labs</div>
+  <form id="login-form">
+    <input id="user-name" placeholder="Username" autocomplete="username">
+    <input id="password" type="password" placeholder="Password" autocomplete="current-password">
+    <button id="login-button" class="btn-login" type="submit">Login</button>
+  </form>
+  <script>
+    document.getElementById('login-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      window.location.href = 'shop-inventory.html';
+    });
+  </script>
+</body>
+</html>

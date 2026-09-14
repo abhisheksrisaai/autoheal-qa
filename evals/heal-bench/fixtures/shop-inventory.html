@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Shop — Products</title></head>
+<body>
+  <header>
+    <span class="title">Products</span>
+    <a id="cart-link" href="#cart">Cart (<span id="cart-badge">0</span>)</a>
+  </header>
+  <main class="inventory_list">
+    <div class="inventory_item"><span class="item-name">Sauce Labs Backpack</span><button class="btn_inventory">Add to cart</button></div>
+    <div class="inventory_item"><span class="item-name">Sauce Labs Bike Light</span><button class="btn_inventory">Add to cart</button></div>
+    <div class="inventory_item"><span class="item-name">Sauce Labs Bolt T-Shirt</span><button class="btn_inventory">Add to cart</button></div>
+    <div class="inventory_item"><span class="item-name">Sauce Labs Fleece Jacket</span><button class="btn_inventory">Add to cart</button></div>
+    <div class="inventory_item"><span class="item-name">Sauce Labs Onesie</span><button class="btn_inventory">Add to cart</button></div>
+    <div class="inventory_item"><span class="item-name">Test.allTheThings() T-Shirt</span><button class="btn_inventory">Add to cart</button></div>
+  </main>
+  <footer>
+    <button id="continue-shopping">Continue Shopping</button>
+    <button id="checkout">Checkout</button>
+  </footer>
+  <script>
+    var badge = document.getElementById('cart-badge');
+    document.querySelectorAll('.btn_inventory').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (btn.textContent === 'Add to cart') {
+          btn.textContent = 'Remove';
+          badge.textContent = String(Number(badge.textContent) + 1);
+        } else {
+          btn.textContent = 'Add to cart';
+          badge.textContent = String(Number(badge.textContent) - 1);
+        }
+      });
+    });
+    document.getElementById('checkout').addEventListener('click', function () {
+      window.location.hash = '#checkout-started';
+    });
+    document.getElementById('continue-shopping').addEventListener('click', function () {
+      window.location.hash = '#shopping';
+    });
+  </script>
+</body>
+</html>

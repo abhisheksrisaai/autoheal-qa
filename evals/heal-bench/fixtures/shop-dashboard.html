@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Shop — Dashboard</title></head>
+<body>
+  <h1 class="title">Dashboard</h1>
+  <section id="settings">
+    <label>Display name <input id="display-name" placeholder="Display name"></label>
+    <button id="save-settings" type="button">Save</button>
+    <div id="save-toast" hidden>Settings saved</div>
+  </section>
+  <div id="promo-slot"></div>
+  <script>
+    document.getElementById('save-settings').addEventListener('click', function () {
+      document.getElementById('save-toast').hidden = false;
+    });
+    // Promo banner arrives late (simulates slow widget for the timing scenario).
+    setTimeout(function () {
+      var banner = document.createElement('div');
+      banner.id = 'promo-banner';
+      banner.setAttribute('role', 'note');
+      banner.textContent = 'Free shipping this week';
+      document.getElementById('promo-slot').appendChild(banner);
+    }, 1200);
+  </script>
+</body>
+</html>
